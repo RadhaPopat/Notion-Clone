@@ -1,16 +1,12 @@
-from fastapi import Header, HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
 from jwt_handler import verify_access_token
 
+security = HTTPBearer()
 
-def get_current_user(authorization: str = Header(...)):
+def get_current_user(credentials = Depends(security)):
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization header"
-        )
-
-    token = authorization.split(" ")[1]
+    token = credentials.credentials
 
     payload = verify_access_token(token)
 

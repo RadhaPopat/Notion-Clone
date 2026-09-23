@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session
 
 from database import engine
-from models import User
-from schemas import UserCreate, UserLogin
+from models import User, Workspace
+from schemas import UserCreate, UserLogin, WorkspaceCreate
 from security import hash_password, verify_password
 from jwt_handler import create_access_token
 from auth import get_current_user
@@ -104,3 +104,25 @@ def get_me(user_id: int = Depends(get_current_user)):
     return {
         "user_id": user_id
     }
+
+@app.post("/workspaces")
+def create_workspace(
+    workspace_data: WorkspaceCreate,
+    user_id: int = Depends(get_current_user)
+):
+    new_workspace = Workspace(
+        name=workspace_data.name,
+        owner_id=user_id
+    )
+
+    with Session(engine) as session:
+        session.add(new_workspace)
+        session.commit()
+        session.refresh(new_workspace)
+
+    return{
+        "message" : "Workspace created successfully !",
+        "workspace_id" : new_workspace.id,
+        "name" : new_workspace.name
+    }
+
