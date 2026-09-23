@@ -126,3 +126,13 @@ def create_workspace(
         "name" : new_workspace.name
     }
 
+@app.get("/workspaces")
+def get_workspaces(
+    user_id: int = Depends(get_current_user)
+):
+    with Session(engine) as session:
+        workspaces = session.query(Workspace).where(
+            Workspace.owner_id == user_id
+        ).all()
+
+    return workspaces
