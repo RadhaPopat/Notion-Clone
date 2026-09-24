@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session
 
 from database import engine
-from models import User, Workspace
-from schemas import UserCreate, UserLogin, WorkspaceCreate
+from models import User, Workspace, Page
+from schemas import UserCreate, UserLogin, WorkspaceCreate, PageCreate
 from security import hash_password, verify_password
 from jwt_handler import create_access_token
 from auth import get_current_user
@@ -136,3 +136,82 @@ def get_workspaces(
         ).all()
 
     return workspaces
+
+@app.post("/pages")
+def create_page(
+    page_data: PageCreate,
+    user_id: int = Depends(get_current_user)
+):
+    with Session(engine) as session:
+
+        workspace = session.query(Workspace).where(
+            Workspace.id == page_data.workspace_id,
+            Workspace.owner_id == user_id
+        ).first()
+
+        if not workspace:
+            raise HTTPException(
+                status_code=404,
+                detail="Workspace not found"
+            )
+
+        if page_data.parent_id is not None:
+            parent_page = session.query(Page).where(
+                Page.id == page_data.parent_id,
+                Page.workspace_id == page_data.workspace_id
+            ).first()
+
+        if not parent_page:
+            raise HTTPException(
+                status_code = 404,
+                detail="Parent not found"
+            )
+
+        new_page = Page(
+            title=page_data.title,
+            workspace_id=page_data.workspace_id,
+            parent_id=page_data.parent_id
+        )
+
+        session.add(new_page)
+        session.commit()
+        session.refresh(new_page)
+
+        return {
+            "message": "Page created successfully!",
+            "page_id": new_page.id,
+            "title": new_page.title,
+            "workspace_id": new_page.workspace_id,
+            "parent_id": new_page.parent_id
+        }
+
+@app.get("/workspaces/{workspace_id}/pages")
+def get_pages(
+    workspace_id: int,
+    user_id: int = Depends(get_current_user)
+):
+    with Session(engine) as session:
+        workspace = session.query(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.owner_id == user_id
+        ).first()
+
+        if not workspace:
+            raise HTTPException(
+                status_code=404,
+                detail="Workspace not found"
+            )
+
+        pages = session.query(Page).where(
+            Page.workspace_id == workspace_id
+        ).all()
+
+        return [
+            {
+                "id": page.id,
+                "title": page.title,
+                "workspace_id": page.workspace_id,
+                "parent_id": page.parent_id
+            }
+            for page in pages
+        ]
